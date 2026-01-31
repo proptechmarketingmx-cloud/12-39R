@@ -112,7 +112,7 @@ Vista rápida de la organización principal del repositorio:
 ├─ database/
 │  ├─ db.py
 │  ├─ schema.sql
-  │  └─ seeds/
+│  └─ seeds/
 │     ├─ clientes_store.json
 │     └─ propiedades_store.json
 ├─ modules/
