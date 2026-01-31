@@ -1,0 +1,8 @@
+tkcalendar
+mysql-connector-python
+bcrypt
+python-dotenv
+openpyxl
+pillow
+requests
+pytest

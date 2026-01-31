@@ -1,0 +1,9 @@
+{
+  "admin": {
+    "username": "admin",
+    "password_hash": "$2b$12$ng2M5I7TMwNHaEsU7YeULu7hsvF/Of3ZYNNpXXtHZ6W6upQNoDDqO",
+    "role": "admin",
+    "must_change": false,
+    "ultimo_acceso": "2026-01-31T02:18:11.808511"
+  }
+}

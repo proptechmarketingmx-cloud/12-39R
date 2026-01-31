@@ -1,0 +1,2 @@
+-- Schema de la base de datos (placeholder)
+-- Reemplazar con el contenido real de /database/schema.sql

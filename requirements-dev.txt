@@ -1,0 +1,7 @@
+pytest
+pytest-cov
+pyinstaller
+python-dotenv
+mypy
+bandit
+pre-commit
