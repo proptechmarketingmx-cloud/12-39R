@@ -1,17 +1,7 @@
-"""Formulario de cliente.
+﻿"""Formulario de cliente.
 
-Formulario completo en modo crear/editar con 5 pestañas:
-- Personal
-- Laboral
-- Financiero
-- Propiedad Interés
-- Otros
-
-Incluye validaciones básicas (CURP longitud, teléfonos 10 dígitos), cálculo
-automático de edad desde fecha de nacimiento, y cálculo de scoring predictivo.
-
-El guardado intenta delegar en `modules.clientes` si existe, en otro caso
-persiste en `database/seeds/clientes_store.json` para pruebas.
+Formulario completo en modo crear/editar con pestañas por seccion.
+Todos los campos son opcionales; se autocompletan valores minimos para guardar.
 """
 from __future__ import annotations
 
@@ -62,20 +52,15 @@ def _save_store(data: list[Dict[str, Any]]) -> None:
 
 
 class ClienteForm(tk.Toplevel):
-	"""Ventana modal para crear/editar cliente.
-
-	Parámetros:
-	- `master`: widget padre
-	- `mode`: 'crear' o 'editar'
-	- `cliente`: dict con datos cuando `mode='editar'`
-	"""
+	"""Ventana modal para crear/editar cliente."""
 
 	def __init__(self, master: Any = None, mode: str = "crear", cliente: Optional[Dict[str, Any]] = None) -> None:
 		super().__init__(master)
 		self.title("Cliente - " + ("Crear" if mode == "crear" else "Editar"))
 		self.mode = mode
 		self.cliente = cliente or {}
-		self.resizable(False, False)
+		self.resizable(True, True)
+		self.geometry("900x700")
 
 		self._build_ui()
 		if self.mode == "editar":
@@ -88,30 +73,33 @@ class ClienteForm(tk.Toplevel):
 		self.notebook = ttk.Notebook(frm)
 		self.notebook.pack(fill=tk.BOTH, expand=True)
 
-		# Personal
+		# Tabs
 		self.tab_personal = ttk.Frame(self.notebook)
-		self.notebook.add(self.tab_personal, text="Personal")
-		self._build_personal(self.tab_personal)
-
-		# Laboral
 		self.tab_laboral = ttk.Frame(self.notebook)
-		self.notebook.add(self.tab_laboral, text="Laboral")
-		self._build_laboral(self.tab_laboral)
-
-		# Financiero
 		self.tab_financiero = ttk.Frame(self.notebook)
-		self.notebook.add(self.tab_financiero, text="Financiero")
-		self._build_financiero(self.tab_financiero)
-
-		# Propiedad Interés
+		self.tab_academico = ttk.Frame(self.notebook)
+		self.tab_familiar = ttk.Frame(self.notebook)
+		self.tab_captacion = ttk.Frame(self.notebook)
 		self.tab_prop_interes = ttk.Frame(self.notebook)
-		self.notebook.add(self.tab_prop_interes, text="Propiedad Interés")
-		self._build_prop_interes(self.tab_prop_interes)
+		self.tab_historial = ttk.Frame(self.notebook)
 
-		# Otros
-		self.tab_otros = ttk.Frame(self.notebook)
-		self.notebook.add(self.tab_otros, text="Otros")
-		self._build_otros(self.tab_otros)
+		self.notebook.add(self.tab_personal, text="Personal")
+		self.notebook.add(self.tab_laboral, text="Laboral")
+		self.notebook.add(self.tab_financiero, text="Financiero")
+		self.notebook.add(self.tab_academico, text="Academico")
+		self.notebook.add(self.tab_familiar, text="Familiar")
+		self.notebook.add(self.tab_captacion, text="Captacion")
+		self.notebook.add(self.tab_prop_interes, text="Propiedad Interes")
+		self.notebook.add(self.tab_historial, text="Historial")
+
+		self._build_personal(self.tab_personal)
+		self._build_laboral(self.tab_laboral)
+		self._build_financiero(self.tab_financiero)
+		self._build_academico(self.tab_academico)
+		self._build_familiar(self.tab_familiar)
+		self._build_captacion(self.tab_captacion)
+		self._build_prop_interes(self.tab_prop_interes)
+		self._build_historial(self.tab_historial)
 
 		# Botones
 		btn_frame = ttk.Frame(frm)
@@ -121,239 +109,302 @@ class ClienteForm(tk.Toplevel):
 		ttk.Button(btn_frame, text="Cancelar", command=self.destroy).pack(side=tk.RIGHT, padx=6)
 
 	def _build_personal(self, parent: ttk.Frame) -> None:
-		# Campos: nombre, apellido paterno, apellido materno, CURP, fecha nacimiento, edad, genero
-		labels = ["Nombre", "Apellido Paterno", "Apellido Materno", "CURP", "Fecha Nac (YYYY-MM-DD)", "Edad", "Género"]
-		self.vars_personal = {k: tk.StringVar() for k in labels}
+		self.vars_personal: Dict[str, tk.StringVar] = {}
 
-		for i, label in enumerate(labels):
-			ttk.Label(parent, text=label + (" *" if label in ("Nombre", "CURP") else "")).grid(row=i, column=0, sticky=tk.W, pady=4, padx=6)
-			if label == "Fecha Nac (YYYY-MM-DD)":
+		row = 0
+		def _add(label: str, key: str, widget: str = "entry", values: Optional[list[str]] = None) -> None:
+			nonlocal row
+			ttk.Label(parent, text=label).grid(row=row, column=0, sticky=tk.W, padx=6, pady=4)
+			self.vars_personal[key] = tk.StringVar()
+			if widget == "combo":
+				cb = ttk.Combobox(parent, textvariable=self.vars_personal[key], state="readonly")
+				cb["values"] = values or []
+				cb.grid(row=row, column=1, sticky=tk.EW, padx=6)
+			elif widget == "date":
 				if DateEntry:
 					entry = DateEntry(parent, date_pattern="yyyy-mm-dd")  # type: ignore
-					entry.grid(row=i, column=1, sticky=tk.EW, padx=6)  # type: ignore
-					self.vars_personal[label].set("")
-					self.vars_personal[label + "__widget"] = entry
+					entry.grid(row=row, column=1, sticky=tk.EW, padx=6)  # type: ignore
+					self.vars_personal[key + "__widget"] = entry
 				else:
-					e = ttk.Entry(parent, textvariable=self.vars_personal[label])
-					e.grid(row=i, column=1, sticky=tk.EW, padx=6)
-					e.bind("<FocusOut>", lambda ev: self._calc_edad())
-			elif label == "Edad":
-				e = ttk.Entry(parent, textvariable=self.vars_personal[label], state="readonly")
-				e.grid(row=i, column=1, sticky=tk.EW, padx=6)
+					ttk.Entry(parent, textvariable=self.vars_personal[key]).grid(row=row, column=1, sticky=tk.EW, padx=6)
 			else:
-				ttk.Entry(parent, textvariable=self.vars_personal[label]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+				ttk.Entry(parent, textvariable=self.vars_personal[key]).grid(row=row, column=1, sticky=tk.EW, padx=6)
+			row += 1
+
+		_add("Primer nombre", "primer_nombre")
+		_add("Segundo nombre", "segundo_nombre")
+		_add("Apellido paterno", "apellido_paterno")
+		_add("Apellido materno", "apellido_materno")
+		_add("CURP", "curp")
+		_add("Fecha de nacimiento (YYYY-MM-DD)", "fecha_nacimiento", widget="date")
+		_add("Edad", "edad")
+		_add("Genero", "genero", widget="combo", values=["Hombre", "Mujer"])
+		_add("Estado civil", "estado_civil", widget="combo", values=["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a"])
+
+		# Metodo de contacto
+		ttk.Label(parent, text="Metodo de contacto", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, sticky=tk.W, padx=6, pady=(12, 4))
+		row += 1
+		_add("Telefono", "telefono")
+		_add("Correo", "correo")
+
+		# Residencia
+		ttk.Label(parent, text="Residencia", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, sticky=tk.W, padx=6, pady=(12, 4))
+		row += 1
+		_add("Pais", "pais")
+		_add("Estado", "estado")
+		_add("Ciudad", "ciudad")
+		_add("Zona", "zona")
+
+		parent.columnconfigure(1, weight=1)
 
 	def _build_laboral(self, parent: ttk.Frame) -> None:
-		labels = ["Ocupación", "Empresa", "Teléfono Principal", "Teléfono Secundario", "Teléfono Terciario", "Estado Civil"]
-		self.vars_laboral = {k: tk.StringVar() for k in labels}
-		for i, label in enumerate(labels):
-			ttk.Label(parent, text=label + (" *" if label.startswith("Teléfono") else "")).grid(row=i, column=0, sticky=tk.W, pady=4, padx=6)
-			if label.startswith("Teléfono"):
-				ttk.Entry(parent, textvariable=self.vars_laboral[label]).grid(row=i, column=1, sticky=tk.EW, padx=6)
-			elif label == "Estado Civil":
-				cb = ttk.Combobox(parent, values=["Soltero/a", "Casado/a", "Divorciado/a", "Viudo/a"], state="readonly", textvariable=self.vars_laboral[label])
-				cb.grid(row=i, column=1, sticky=tk.EW, padx=6)
-			else:
-				ttk.Entry(parent, textvariable=self.vars_laboral[label]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+		self.vars_laboral: Dict[str, tk.StringVar] = {}
+		labels = [
+			("Ocupacion", "ocupacion"),
+			("Antiguedad laboral", "antiguedad_laboral"),
+		]
+		for i, (label, key) in enumerate(labels):
+			ttk.Label(parent, text=label).grid(row=i, column=0, sticky=tk.W, padx=6, pady=4)
+			self.vars_laboral[key] = tk.StringVar()
+			ttk.Entry(parent, textvariable=self.vars_laboral[key]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+		parent.columnconfigure(1, weight=1)
 
 	def _build_financiero(self, parent: ttk.Frame) -> None:
-		labels = ["Ingreso Mensual", "Presupuesto", "Crédito Disponible", "Tipo Crédito", "Nivel Educativo"]
-		self.vars_financiero = {k: tk.StringVar() for k in labels}
-		for i, label in enumerate(labels):
-			ttk.Label(parent, text=label).grid(row=i, column=0, sticky=tk.W, pady=4, padx=6)
-			if label == "Tipo Crédito":
-				cb = ttk.Combobox(parent, values=["Hipotecario", "Infonavit", "Bancario", "Contado", "No Aplica"], state="readonly", textvariable=self.vars_financiero[label])
-				cb.grid(row=i, column=1, sticky=tk.EW, padx=6)
-			else:
-				ttk.Entry(parent, textvariable=self.vars_financiero[label]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+		self.vars_financiero: Dict[str, tk.StringVar] = {}
+		labels = [
+			("Ingreso x mes", "ingreso_mensual"),
+			("Tipo de credito disponible", "tipo_credito"),
+			("Buro de credito", "buro_credito"),
+		]
+		row = 0
+		for label, key in labels:
+			ttk.Label(parent, text=label).grid(row=row, column=0, sticky=tk.W, padx=6, pady=4)
+			self.vars_financiero[key] = tk.StringVar()
+			ttk.Entry(parent, textvariable=self.vars_financiero[key]).grid(row=row, column=1, sticky=tk.EW, padx=6)
+			row += 1
 
-		# Scoring
-		ttk.Label(parent, text="Scoring (0-100)").grid(row=len(labels), column=0, sticky=tk.W, pady=6, padx=6)
-		self.var_scoring = tk.StringVar(value="0")
-		ttk.Entry(parent, textvariable=self.var_scoring, state="readonly").grid(row=len(labels), column=1, sticky=tk.EW, padx=6)
-		ttk.Button(parent, text="Calcular Scoring", command=self._calcular_scoring).grid(row=len(labels)+1, column=1, sticky=tk.E, padx=6, pady=6)
+		ttk.Label(parent, text="Presupuesto", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, sticky=tk.W, padx=6, pady=(12, 4))
+		row += 1
+		for label, key in [("Minimo", "presupuesto_min"), ("Maximo", "presupuesto_max")]:
+			ttk.Label(parent, text=label).grid(row=row, column=0, sticky=tk.W, padx=6, pady=4)
+			self.vars_financiero[key] = tk.StringVar()
+			ttk.Entry(parent, textvariable=self.vars_financiero[key]).grid(row=row, column=1, sticky=tk.EW, padx=6)
+			row += 1
+
+		parent.columnconfigure(1, weight=1)
+
+	def _build_academico(self, parent: ttk.Frame) -> None:
+		self.vars_academico: Dict[str, tk.StringVar] = {}
+		ttk.Label(parent, text="Nivel educativo").grid(row=0, column=0, sticky=tk.W, padx=6, pady=4)
+		self.vars_academico["nivel_educativo"] = tk.StringVar()
+		cb = ttk.Combobox(parent, textvariable=self.vars_academico["nivel_educativo"], state="readonly")
+		cb["values"] = ["Primaria", "Secundaria", "Preparatoria", "Licenciatura", "Posgrado"]
+		cb.grid(row=0, column=1, sticky=tk.EW, padx=6)
+		parent.columnconfigure(1, weight=1)
+
+	def _build_familiar(self, parent: ttk.Frame) -> None:
+		self.vars_familiar: Dict[str, tk.StringVar] = {}
+		ttk.Label(parent, text="Hijos").grid(row=0, column=0, sticky=tk.W, padx=6, pady=4)
+		self.vars_familiar["hijos"] = tk.StringVar()
+		ttk.Entry(parent, textvariable=self.vars_familiar["hijos"]).grid(row=0, column=1, sticky=tk.EW, padx=6)
+		parent.columnconfigure(1, weight=1)
+
+	def _build_captacion(self, parent: ttk.Frame) -> None:
+		self.vars_captacion: Dict[str, tk.StringVar] = {}
+		options = ["Messenger Marketplace", "Referido", "Otro"]
+		ttk.Label(parent, text="Metodo de captacion").grid(row=0, column=0, sticky=tk.W, padx=6, pady=4)
+		self.vars_captacion["metodo_captacion"] = tk.StringVar()
+		cb = ttk.Combobox(parent, textvariable=self.vars_captacion["metodo_captacion"], state="readonly")
+		cb["values"] = options
+		cb.grid(row=0, column=1, sticky=tk.EW, padx=6)
+		parent.columnconfigure(1, weight=1)
 
 	def _build_prop_interes(self, parent: ttk.Frame) -> None:
-		labels = ["Tipo Propiedad", "Zona de Interés", "Número de Habitaciones", "Estado Propiedad"]
-		self.vars_prop_interes = {k: tk.StringVar() for k in labels}
-		for i, label in enumerate(labels):
-			ttk.Label(parent, text=label).grid(row=i, column=0, sticky=tk.W, pady=4, padx=6)
-			if label == "Número de Habitaciones":
-				ttk.Spinbox(parent, from_=0, to=20, textvariable=self.vars_prop_interes[label]).grid(row=i, column=1, sticky=tk.W, padx=6)
-			else:
-				ttk.Entry(parent, textvariable=self.vars_prop_interes[label]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+		self.vars_prop_interes: Dict[str, tk.StringVar] = {}
+		labels = [
+			("Pais", "pi_pais"),
+			("Estado", "pi_estado"),
+			("Ciudad", "pi_ciudad"),
+			("Zona", "pi_zona"),
+			("Tipo de interes (compra/renta/venta)", "pi_tipo"),
+		]
+		for i, (label, key) in enumerate(labels):
+			ttk.Label(parent, text=label).grid(row=i, column=0, sticky=tk.W, padx=6, pady=4)
+			self.vars_prop_interes[key] = tk.StringVar()
+			ttk.Entry(parent, textvariable=self.vars_prop_interes[key]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+		parent.columnconfigure(1, weight=1)
 
-	def _build_otros(self, parent: ttk.Frame) -> None:
-		labels = ["Notas", "Fuente de Captación", "Estado Cliente"]
-		self.vars_otros = {k: tk.StringVar() for k in labels}
-		self.txt_notas: tk.Text | None = None
-		for i, label in enumerate(labels):
-			ttk.Label(parent, text=label).grid(row=i, column=0, sticky=tk.W, pady=4, padx=6)
-			if label == "Notas":
-				txt = tk.Text(parent, height=6, width=40)
-				txt.grid(row=i, column=1, sticky=tk.EW, padx=6)
-				self.txt_notas = txt
-			else:
-				if label == "Estado Cliente":
-					cb = ttk.Combobox(parent, values=["Activo", "Inactivo", "Potencial", "No Interesado"], state="readonly", textvariable=self.vars_otros[label])
-					cb.grid(row=i, column=1, sticky=tk.EW, padx=6)
-				else:
-					ttk.Entry(parent, textvariable=self.vars_otros[label]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+	def _build_historial(self, parent: ttk.Frame) -> None:
+		self.vars_historial: Dict[str, tk.StringVar] = {}
+		labels = [
+			("Deudor alimenticio", "deudor_alimenticio"),
+			("Propiedades previas (si/no)", "propiedades_previas"),
+			("N° de propiedades previas", "num_propiedades_previas"),
+			("Edad de adquisicion", "edad_adquisicion"),
+		]
+		for i, (label, key) in enumerate(labels):
+			ttk.Label(parent, text=label).grid(row=i, column=0, sticky=tk.W, padx=6, pady=4)
+			self.vars_historial[key] = tk.StringVar()
+			ttk.Entry(parent, textvariable=self.vars_historial[key]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+		parent.columnconfigure(1, weight=1)
 
 	def _populate(self) -> None:
-		# Rellenar campos con datos del cliente (modo editar)
 		try:
 			p = self.cliente
 			if not p:
 				return
-			# Personal
-			mp = self.vars_personal
-			mp["Nombre"].set(p.get("nombre", ""))
-			mp["Apellido Paterno"].set(p.get("apellido_paterno", ""))
-			mp["Apellido Materno"].set(p.get("apellido_materno", ""))
-			mp["CURP"].set(p.get("curp", ""))
-			mp["Fecha Nac (YYYY-MM-DD)"].set(p.get("fecha_nacimiento", ""))
-			mp["Edad"].set(str(p.get("edad", "")))
-			mp["Género"].set(p.get("genero", ""))
-			# Otros (simplificado)
-			self.vars_otros.get("Estado Cliente", tk.StringVar()).set(p.get("estado_cliente", ""))
+			# personal
+			self.vars_personal.get("primer_nombre", tk.StringVar()).set(p.get("primer_nombre", ""))
+			self.vars_personal.get("segundo_nombre", tk.StringVar()).set(p.get("segundo_nombre", ""))
+			self.vars_personal.get("apellido_paterno", tk.StringVar()).set(p.get("apellido_paterno", ""))
+			self.vars_personal.get("apellido_materno", tk.StringVar()).set(p.get("apellido_materno", ""))
+			self.vars_personal.get("curp", tk.StringVar()).set(p.get("curp", ""))
+			self.vars_personal.get("fecha_nacimiento", tk.StringVar()).set(p.get("fecha_nacimiento", ""))
+			self.vars_personal.get("edad", tk.StringVar()).set(str(p.get("edad", "")))
+			self.vars_personal.get("genero", tk.StringVar()).set(p.get("genero", ""))
+			self.vars_personal.get("estado_civil", tk.StringVar()).set(p.get("estado_civil", ""))
+			self.vars_personal.get("telefono", tk.StringVar()).set(p.get("telefono", ""))
+			self.vars_personal.get("correo", tk.StringVar()).set(p.get("correo", ""))
+			self.vars_personal.get("pais", tk.StringVar()).set(p.get("pais", ""))
+			self.vars_personal.get("estado", tk.StringVar()).set(p.get("estado", ""))
+			self.vars_personal.get("ciudad", tk.StringVar()).set(p.get("ciudad", ""))
+			self.vars_personal.get("zona", tk.StringVar()).set(p.get("zona", ""))
+
+			# laboral
+			self.vars_laboral.get("ocupacion", tk.StringVar()).set(p.get("ocupacion", ""))
+			self.vars_laboral.get("antiguedad_laboral", tk.StringVar()).set(p.get("antiguedad_laboral", ""))
+
+			# financiero
+			for key in ["ingreso_mensual", "tipo_credito", "buro_credito", "presupuesto_min", "presupuesto_max"]:
+				self.vars_financiero.get(key, tk.StringVar()).set(p.get(key, ""))
+
+			# academico
+			self.vars_academico.get("nivel_educativo", tk.StringVar()).set(p.get("nivel_educativo", ""))
+
+			# familiar
+			self.vars_familiar.get("hijos", tk.StringVar()).set(p.get("hijos", ""))
+
+			# captacion
+			self.vars_captacion.get("metodo_captacion", tk.StringVar()).set(p.get("metodo_captacion", ""))
+
+			# propiedad interes
+			for key in ["pi_pais", "pi_estado", "pi_ciudad", "pi_zona", "pi_tipo"]:
+				self.vars_prop_interes.get(key, tk.StringVar()).set(p.get(key, ""))
+
+			# historial
+			for key in ["deudor_alimenticio", "propiedades_previas", "num_propiedades_previas", "edad_adquisicion"]:
+				self.vars_historial.get(key, tk.StringVar()).set(p.get(key, ""))
 		except Exception:
 			LOG.exception("Error poblando formulario de cliente")
 
 	def _on_limpiar(self) -> None:
-		for d in (self.vars_personal, self.vars_laboral, self.vars_financiero, self.vars_prop_interes):
+		for d in (
+			self.vars_personal,
+			self.vars_laboral,
+			self.vars_financiero,
+			self.vars_academico,
+			self.vars_familiar,
+			self.vars_captacion,
+			self.vars_prop_interes,
+			self.vars_historial,
+		):
 			for v in d.values():
 				try:
 					v.set("")
 				except Exception:
 					pass
-		# Notas
-		if self.txt_notas:
-			self.txt_notas.delete("1.0", tk.END)
-
-	def _calc_edad(self) -> None:
-		val = self.vars_personal.get("Fecha Nac (YYYY-MM-DD)", tk.StringVar()).get()
-		try:
-			dt = datetime.strptime(val, "%Y-%m-%d")
-			today = datetime.today()
-			edad = today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
-			self.vars_personal["Edad"].set(str(edad))
-		except Exception:
-			# Ignore parse errors
-			pass
 
 	def _validar_telefonos(self) -> Optional[str]:
-		for key in ("Teléfono Principal", "Teléfono Secundario", "Teléfono Terciario"):
-			val = self.vars_laboral[key].get().strip()
-			if val and (not val.isdigit() or len(val) != 10):
-				return f"El campo {key} debe tener 10 dígitos numéricos."
+		val = self.vars_personal.get("telefono", tk.StringVar()).get().strip()
+		if val and (not val.isdigit() or len(val) != 10):
+			return "El telefono debe tener 10 digitos numericos."
 		return None
 
 	def _validar_curp(self) -> Optional[str]:
-		curp = self.vars_personal["CURP"].get().strip()
+		curp = self.vars_personal.get("curp", tk.StringVar()).get().strip()
 		if not curp:
-			return "El CURP es obligatorio."
+			return None
 		if len(curp) != 18:
-			return "CURP inválido (debe tener 18 caracteres)."
+			return "CURP invalido (debe tener 18 caracteres)."
 		return None
 
 	def _existe_por_curp(self, curp: str) -> bool:
-		# Primero delegar a modules.clientes si existe
 		try:
 			if clientes_module and hasattr(clientes_module, "find_by_curp"):
-				return bool(clientes_module.find_by_curp(curp))  # type: ignore[call-arg, misc]
+				return bool(clientes_module.find_by_curp(curp))  # type: ignore
 		except Exception:
 			LOG.exception("Error consultando modules.clientes.find_by_curp")
 
-		# Fallback a store local
 		data = _load_store()
 		for c in data:
 			if c.get("curp") == curp:
-				# Si estamos en modo editar, permitir que sea el mismo registro
 				if self.mode == "editar" and c.get("id") == self.cliente.get("id"):
 					return False
 				return True
 		return False
 
-	def _calcular_scoring(self) -> None:
-		try:
-			ingreso = float(self.vars_financiero["Ingreso Mensual"].get() or 0)
-		except Exception:
-			ingreso = 0.0
-		try:
-			presupuesto = float(self.vars_financiero["Presupuesto"].get() or 0)
-		except Exception:
-			presupuesto = 0.0
-		try:
-			credito = float(self.vars_financiero["Crédito Disponible"].get() or 0)
-		except Exception:
-			credito = 0.0
-		tipo = self.vars_financiero["Tipo Crédito"].get()
-
-		score = 0.0
-		# 40% presupuesto vs ingreso
-		if ingreso > 0:
-			ratio = min(1.0, presupuesto / ingreso)
-			score += ratio * 40
-		# 40% crédito disponible relativo a presupuesto
-		if presupuesto > 0:
-			score += min(1.0, credito / presupuesto) * 40
-		# 20% tipo crédito
-		tipo_map = {"Hipotecario": 1.0, "Contado": 1.0, "Infonavit": 0.8, "Bancario": 0.9, "No Aplica": 0.2}
-		score += tipo_map.get(tipo, 0.5) * 20
-
-		final = int(round(score))
-		self.var_scoring.set(str(max(0, min(100, final))))
-
 	def _on_guardar(self) -> None:
-		# Validaciones
+		# Validaciones opcionales
 		err = self._validar_curp() or self._validar_telefonos()
 		if err:
-			messagebox.showerror("Validación", err)
+			messagebox.showerror("Validacion", err)
 			return
 
-		curp = self.vars_personal["CURP"].get().strip()
-		if self._existe_por_curp(curp):
-			if not messagebox.askyesno("Duplicado", "Ya existe un cliente con ese CURP. ¿Desea continuar? "):
+		primer = self.vars_personal.get("primer_nombre", tk.StringVar()).get().strip()
+		segundo = self.vars_personal.get("segundo_nombre", tk.StringVar()).get().strip()
+		ap_pat = self.vars_personal.get("apellido_paterno", tk.StringVar()).get().strip()
+		ap_mat = self.vars_personal.get("apellido_materno", tk.StringVar()).get().strip()
+
+		nombre = " ".join([x for x in [primer, segundo] if x]).strip()
+
+		curp = self.vars_personal.get("curp", tk.StringVar()).get().strip()
+		if curp and self._existe_por_curp(curp):
+			if not messagebox.askyesno("Duplicado", "Ya existe un cliente con ese CURP. ¿Desea continuar?"):
 				return
 
-		# Recolectar datos
 		cliente = {
-			"nombre": self.vars_personal["Nombre"].get().strip(),
-			"apellido_paterno": self.vars_personal["Apellido Paterno"].get().strip(),
-			"apellido_materno": self.vars_personal["Apellido Materno"].get().strip(),
+			"primer_nombre": primer,
+			"segundo_nombre": segundo,
+			"apellido_paterno": ap_pat,
+			"apellido_materno": ap_mat,
+			"nombre": nombre,
 			"curp": curp,
-			"fecha_nacimiento": self.vars_personal["Fecha Nac (YYYY-MM-DD)"].get(),
-			"edad": self.vars_personal["Edad"].get(),
-			"genero": self.vars_personal["Género"].get(),
-			"ocupacion": self.vars_laboral["Ocupación"].get(),
-			"empresa": self.vars_laboral["Empresa"].get(),
-			"telefono_principal": self.vars_laboral["Teléfono Principal"].get(),
-			"telefono_secundario": self.vars_laboral["Teléfono Secundario"].get(),
-			"telefono_terciario": self.vars_laboral["Teléfono Terciario"].get(),
-			"estado_civil": self.vars_laboral["Estado Civil"].get(),
-			"ingreso_mensual": self.vars_financiero["Ingreso Mensual"].get(),
-			"presupuesto": self.vars_financiero["Presupuesto"].get(),
-			"credito_disponible": self.vars_financiero["Crédito Disponible"].get(),
-			"tipo_credito": self.vars_financiero["Tipo Crédito"].get(),
-			"nivel_educativo": self.vars_financiero["Nivel Educativo"].get(),
-			"tipo_propiedad_interes": self.vars_prop_interes["Tipo Propiedad"].get(),
-			"zona_interes": self.vars_prop_interes["Zona de Interés"].get(),
-			"habitaciones": self.vars_prop_interes["Número de Habitaciones"].get(),
-			"estado_propiedad": self.vars_prop_interes["Estado Propiedad"].get(),
-			"notas": (self.txt_notas.get("1.0", tk.END).strip() if self.txt_notas else ""),
-			"fuente": self.vars_otros["Fuente de Captación"].get(),
-			"estado_cliente": self.vars_otros["Estado Cliente"].get(),
-			"scoring": self.var_scoring.get(),
+			"fecha_nacimiento": self.vars_personal.get("fecha_nacimiento", tk.StringVar()).get(),
+			"edad": self.vars_personal.get("edad", tk.StringVar()).get(),
+			"genero": self.vars_personal.get("genero", tk.StringVar()).get(),
+			"estado_civil": self.vars_personal.get("estado_civil", tk.StringVar()).get(),
+			"telefono": self.vars_personal.get("telefono", tk.StringVar()).get(),
+			"correo": self.vars_personal.get("correo", tk.StringVar()).get(),
+			"pais": self.vars_personal.get("pais", tk.StringVar()).get(),
+			"estado": self.vars_personal.get("estado", tk.StringVar()).get(),
+			"ciudad": self.vars_personal.get("ciudad", tk.StringVar()).get(),
+			"zona": self.vars_personal.get("zona", tk.StringVar()).get(),
+			"ocupacion": self.vars_laboral.get("ocupacion", tk.StringVar()).get(),
+			"antiguedad_laboral": self.vars_laboral.get("antiguedad_laboral", tk.StringVar()).get(),
+			"ingreso_mensual": self.vars_financiero.get("ingreso_mensual", tk.StringVar()).get(),
+			"tipo_credito": self.vars_financiero.get("tipo_credito", tk.StringVar()).get(),
+			"buro_credito": self.vars_financiero.get("buro_credito", tk.StringVar()).get(),
+			"presupuesto_min": self.vars_financiero.get("presupuesto_min", tk.StringVar()).get(),
+			"presupuesto_max": self.vars_financiero.get("presupuesto_max", tk.StringVar()).get(),
+			"nivel_educativo": self.vars_academico.get("nivel_educativo", tk.StringVar()).get(),
+			"hijos": self.vars_familiar.get("hijos", tk.StringVar()).get(),
+			"metodo_captacion": self.vars_captacion.get("metodo_captacion", tk.StringVar()).get(),
+			"pi_pais": self.vars_prop_interes.get("pi_pais", tk.StringVar()).get(),
+			"pi_estado": self.vars_prop_interes.get("pi_estado", tk.StringVar()).get(),
+			"pi_ciudad": self.vars_prop_interes.get("pi_ciudad", tk.StringVar()).get(),
+			"pi_zona": self.vars_prop_interes.get("pi_zona", tk.StringVar()).get(),
+			"pi_tipo": self.vars_prop_interes.get("pi_tipo", tk.StringVar()).get(),
+			"deudor_alimenticio": self.vars_historial.get("deudor_alimenticio", tk.StringVar()).get(),
+			"propiedades_previas": self.vars_historial.get("propiedades_previas", tk.StringVar()).get(),
+			"num_propiedades_previas": self.vars_historial.get("num_propiedades_previas", tk.StringVar()).get(),
+			"edad_adquisicion": self.vars_historial.get("edad_adquisicion", tk.StringVar()).get(),
 		}
 
-		# Intentar delegar a modules.clientes.save si existe
 		try:
 			if clientes_module and hasattr(clientes_module, "save"):
 				clientes_module.save(cliente)  # type: ignore
 			else:
 				data = _load_store()
-				# asignar id simple
 				cliente["id"] = str(max((int(c.get("id", 0)) for c in data), default=0) + 1)
 				data.append(cliente)
 				_save_store(data)
@@ -362,7 +413,7 @@ class ClienteForm(tk.Toplevel):
 			messagebox.showerror("Error", "No se pudo guardar el cliente.")
 			return
 
-		messagebox.showinfo("Éxito", "Cliente guardado correctamente.")
+		messagebox.showinfo("Exito", "Cliente guardado correctamente.")
 		self.destroy()
 
 
@@ -376,4 +427,3 @@ def main_test() -> None:
 
 if __name__ == "__main__":
 	main_test()
-

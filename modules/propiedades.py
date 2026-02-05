@@ -46,10 +46,6 @@ def save(propiedad: Dict) -> Dict:
 		raise ValueError("Propiedad debe ser un diccionario")
 	titulo = propiedad.get("titulo", "").strip()
 	precio = propiedad.get("precio", "").strip()
-	if not titulo:
-		raise ValueError("El título es obligatorio")
-	if not precio:
-		raise ValueError("El precio es obligatorio")
 
 	data = _load_store()
 

@@ -124,12 +124,9 @@ class PropiedadForm(tk.Toplevel):
 		self.lbl_fotos.config(text=f"{len(self._fotos)} fotos")
 
 	def _on_guardar(self) -> None:
-		# Validaciones mínimas
+		# Campos opcionales: no autogenerar
 		titulo = self.vars_basico["Título"].get().strip() if isinstance(self.vars_basico.get("Título"), tk.StringVar) else ""
 		precio = self.vars_basico["Precio"].get().strip() if isinstance(self.vars_basico.get("Precio"), tk.StringVar) else ""
-		if not titulo or not precio:
-			messagebox.showerror("Validación", "Título y Precio son obligatorios.")
-			return
 
 		prop = {
 			"titulo": titulo,
