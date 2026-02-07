@@ -1,11 +1,9 @@
-"""Punto de entrada principal para CRM Inmobiliario (placeholder).
-
-Ejecutar `python -m ui.login_window` durante desarrollo para abrir la UI.
-"""
+"""Punto de entrada principal para CRM Inmobiliario."""
 
 from __future__ import annotations
 
 if __name__ == "__main__":
-    from ui.login_window import main as _login_main
+    from ui.main_window import MainWindow
 
-    _login_main()
+    win = MainWindow(user={"username": "Usuario"})
+    win.run()

@@ -1,8 +1,4 @@
-﻿"""Ventana principal demo para el CRM Inmobiliario.
-
-Archivo minimo para pruebas de integracion con `ui/login_window.LoginWindow`.
-Muestra un encabezado con el usuario autenticado y un boton para cerrar sesion.
-"""
+﻿"""Ventana principal para el CRM Inmobiliario (modo usuario ?nico)."""
 from __future__ import annotations
 
 import logging
@@ -127,8 +123,8 @@ class MainWindow:
             grid.columnconfigure(c, weight=1)
 
         # Boton logout
-        btn_logout = ttk.Button(self.frame, text="Cerrar sesion", command=self._on_logout)
-        btn_logout.pack(side=tk.BOTTOM, anchor=tk.E)
+        btn_exit = ttk.Button(self.frame, text="Salir", command=self._on_exit)
+        btn_exit.pack(side=tk.BOTTOM, anchor=tk.E)
 
     def _open_formularios(self) -> None:
         try:
@@ -417,12 +413,12 @@ class MainWindow:
                         cur = conn.cursor()
                         if view_name == "clientes":
                             total = self._fetch_scalar(cur, "SELECT COUNT(*) FROM clientes")
-                            activos = self._fetch_scalar(cur, "SELECT COUNT(*) FROM clientes WHERE activo=1")
+                            activos = self._fetch_scalar(cur, "SELECT COUNT(*) FROM clientes WHERE activo IS TRUE")
                             precio_min = precio_max = precio_avg = "-"
                             precios: list[float] = []
                         elif view_name == "propiedades":
                             total = self._fetch_scalar(cur, "SELECT COUNT(*) FROM propiedades")
-                            activos = self._fetch_scalar(cur, "SELECT COUNT(*) FROM propiedades WHERE activo=1")
+                            activos = self._fetch_scalar(cur, "SELECT COUNT(*) FROM propiedades WHERE activo IS TRUE")
                             precio_min = self._fetch_scalar(cur, "SELECT MIN(precio) FROM propiedades")
                             precio_max = self._fetch_scalar(cur, "SELECT MAX(precio) FROM propiedades")
                             precio_avg = self._fetch_scalar(cur, "SELECT AVG(precio) FROM propiedades")
@@ -430,7 +426,7 @@ class MainWindow:
                             precios = [float(r[0]) for r in (cur.fetchall() or []) if r and r[0] is not None]
                         else:
                             total = self._fetch_scalar(cur, "SELECT COUNT(*) FROM asesores")
-                            activos = self._fetch_scalar(cur, "SELECT COUNT(*) FROM asesores WHERE activo=1")
+                            activos = self._fetch_scalar(cur, "SELECT COUNT(*) FROM asesores WHERE activo IS TRUE")
                             precio_min = precio_max = precio_avg = "-"
                             precios = []
                         inactivos = max(0, int(total) - int(activos))
@@ -498,11 +494,11 @@ class MainWindow:
             conn = _db.get_connection()
             cur = conn.cursor()
             self._stats_vars["clientes_total"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM clientes")))
-            self._stats_vars["clientes_activos"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM clientes WHERE activo=1")))
+            self._stats_vars["clientes_activos"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM clientes WHERE activo IS TRUE")))
             self._stats_vars["propiedades_total"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM propiedades")))
-            self._stats_vars["propiedades_activas"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM propiedades WHERE activo=1")))
+            self._stats_vars["propiedades_activas"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM propiedades WHERE activo IS TRUE")))
             self._stats_vars["asesores_total"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM asesores")))
-            self._stats_vars["asesores_activos"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM asesores WHERE activo=1")))
+            self._stats_vars["asesores_activos"].set(str(self._fetch_scalar(cur, "SELECT COUNT(*) FROM asesores WHERE activo IS TRUE")))
         except Exception:
             LOG.exception("Error obteniendo estadisticas")
             for k in self._stats_vars:

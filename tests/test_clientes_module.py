@@ -1,36 +1,32 @@
-"""Tests para modules.clientes (save / find_by_curp)."""
+"""Tests para modules.clientes (PostgreSQL)."""
 from __future__ import annotations
 
 import os
-import tempfile
+import uuid
+
+import pytest
 
 from modules import clientes
 
 
+def _should_run_db_tests() -> bool:
+    return os.getenv("RUN_DB_TESTS", "").lower() in ("1", "true", "yes")
+
+
+@pytest.mark.skipif(not _should_run_db_tests(), reason="RUN_DB_TESTS no habilitado")
 def test_save_and_find_by_curp():
-    # Crear un store temporal
-    fd, path = tempfile.mkstemp(suffix=".json")
-    os.close(fd)
-    try:
-        clientes.STORE_PATH = path
-        # Inicializar store vacío
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("[]")
+    curp = f"TEST{uuid.uuid4().hex[:14].upper()}X"
+    cliente = {"primer_nombre": "Juan", "apellido_paterno": "Perez", "curp": curp}
+    saved = clientes.save(cliente)
+    assert "id" in saved
 
-        cliente = {"nombre": "Juan", "curp": "ABCDEFGH123456789X"}
-        saved = clientes.save(cliente)
-        assert "id" in saved
+    found = clientes.find_by_curp(curp)
+    assert found is not None
+    assert found.get("primer_nombre") == "Juan"
 
-        found = clientes.find_by_curp("ABCDEFGH123456789X")
-        assert found is not None
-        assert found.get("nombre") == "Juan"
+    saved["primer_nombre"] = "Juanito"
+    updated = clientes.save(saved)
+    assert updated.get("primer_nombre") == "Juanito"
 
-        # actualizar
-        saved["nombre"] = "Juan Perez"
-        updated = clientes.save(saved)
-        assert updated.get("nombre") == "Juan Perez"
-    finally:
-        try:
-            os.remove(path)
-        except Exception:
-            pass
+    # Cleanup
+    assert clientes.eliminar_cliente(saved["id"]) is True

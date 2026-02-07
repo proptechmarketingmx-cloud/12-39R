@@ -1,13 +1,10 @@
 ﻿"""Lista de propiedades con busqueda, filtros y paginacion.
 
-Usa `modules.propiedades` si existen funciones (listar_propiedades, buscar_propiedades, contar_propiedades)
-y cae a un store JSON de desarrollo cuando no estan disponibles.
+Usa `modules.propiedades` (listar_propiedades, buscar_propiedades, contar_propiedades).
 """
 from __future__ import annotations
 
-import json
 import logging
-import os
 import math
 from typing import Any, Dict, List, Optional, Callable
 
@@ -31,7 +28,6 @@ except Exception:
 
 LOG = logging.getLogger(__name__)
 
-STORE_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "database", "seeds", "propiedades_store.json")
 
 
 def _get_color(name: str, default: str) -> str:
@@ -59,18 +55,6 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
 		return float(value)
 	except Exception:
 		return default
-
-
-def _load_store() -> List[Dict[str, Any]]:
-	path = os.path.abspath(STORE_PATH)
-	if not os.path.exists(path):
-		return []
-	try:
-		with open(path, "r", encoding="utf-8") as f:
-			return json.load(f)
-	except Exception:
-		LOG.exception("No se pudo leer el store de propiedades")
-		return []
 
 
 def _call_with_supported_kwargs(func: Callable[..., Any], **kwargs: Any) -> Any:
@@ -246,32 +230,6 @@ class PropiedadLista(ttk.Frame):
 		if not total:
 			total = len(data)
 
-		# Fallback JSON si no hay modulo o no retorno data
-		if propiedades_module is None or (not data and total == 0):
-			data_all = _load_store()
-			if filtros.get("estado"):
-				data_all = [p for p in data_all if p.get("estado") == filtros["estado"]]
-			if filtros.get("precio_min"):
-				data_all = [p for p in data_all if _safe_float(p.get("precio", 0)) >= filtros["precio_min"]]
-			if filtros.get("precio_max"):
-				data_all = [p for p in data_all if _safe_float(p.get("precio", 0)) <= filtros["precio_max"]]
-			if search_text:
-				st = search_text.lower()
-				def _match(p: Dict[str, Any]) -> bool:
-					parts = [
-						str(p.get("titulo", "")),
-						str(p.get("descripcion", "")),
-						str(p.get("estado", "")),
-						str(p.get("ubicacion", {}).get("ciudad", "")),
-						str(p.get("ubicacion", {}).get("colonia", "")),
-					]
-					return st in " ".join(parts).lower()
-				data_all = [p for p in data_all if _match(p)]
-			total = len(data_all)
-			start = (self.page - 1) * self.page_size
-			end = start + self.page_size
-			data = data_all[start:end]
-
 		self.total = total
 		self._rows = data
 		self._render_table()
@@ -285,8 +243,7 @@ class PropiedadLista(ttk.Frame):
 			titulo = p.get("titulo", "")
 			precio = p.get("precio", "")
 			estado = p.get("estado", "")
-			ubic = p.get("ubicacion", {}) if isinstance(p.get("ubicacion", {}), dict) else {}
-			ciudad = ubic.get("ciudad", "")
+			ciudad = p.get("ciudad", "")
 			metros = p.get("metros", "")
 			self.tree.insert("", tk.END, values=(pid, titulo, precio, estado, ciudad, metros))
 

@@ -7,9 +7,7 @@ características. El guardado persiste en un store JSON de pruebas si no existe
 """
 from __future__ import annotations
 
-import json
 import logging
-import os
 from typing import Any, Dict, List, Optional
 
 import tkinter as tk
@@ -22,29 +20,6 @@ except Exception:
 
 LOG = logging.getLogger(__name__)
 
-STORE_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "database", "seeds", "propiedades_store.json")
-
-
-def _load_store() -> list:
-	path = os.path.abspath(STORE_PATH)
-	if not os.path.exists(path):
-		return []
-	try:
-		with open(path, "r", encoding="utf-8") as f:
-			return json.load(f)
-	except Exception:
-		LOG.exception("No se pudo leer el store de propiedades")
-		return []
-
-
-def _save_store(data: list) -> None:
-	path = os.path.abspath(STORE_PATH)
-	os.makedirs(os.path.dirname(path), exist_ok=True)
-	try:
-		with open(path, "w", encoding="utf-8") as f:
-			json.dump(data, f, indent=2, ensure_ascii=False)
-	except Exception:
-		LOG.exception("No se pudo guardar el store de propiedades")
 
 
 class PropiedadForm(tk.Toplevel):
@@ -138,15 +113,14 @@ class PropiedadForm(tk.Toplevel):
 			"caracteristicas": {k: v.get() for k, v in self.vars_carac.items()},
 			"fotos": self._fotos,
 		}
+		if self.mode == "editar" and self.propiedad.get("id") is not None:
+			prop["id"] = self.propiedad.get("id")
 
 		try:
 			if propiedades_module and hasattr(propiedades_module, "save"):
 				propiedades_module.save(prop)
 			else:
-				data = _load_store()
-				prop["id"] = max((p.get("id", 0) for p in data), default=0) + 1
-				data.append(prop)
-				_save_store(data)
+				raise RuntimeError("Modulo de propiedades no disponible")
 		except Exception:
 			LOG.exception("Error guardando propiedad")
 			messagebox.showerror("Error", "No se pudo guardar la propiedad.")

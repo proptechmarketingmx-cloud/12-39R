@@ -8,12 +8,12 @@ recomendados para instalación y actualización.
 Aplicación de escritorio (Tkinter) para gestión inmobiliaria: clientes,
 propiedades, autenticación y flujos básicos de CRM. El repositorio contiene
 un prototipo funcional y una base organizada para migrar a una solución
-productiva (BD MySQL/MariaDB, despliegue y empaquetado).
+productiva (BD PostgreSQL, despliegue y empaquetado).
 
 ## Estado actual (resumen)
 
 - Login visual completo en `ui/login_window.py`, integrado con
-  `modules/auth.py` (MySQL) y usuario `admin` / `admin123`.
+  `modules/auth.py` (PostgreSQL) y usuario `admin` / `admin123`.
 - Diálogo modal para cambio de contraseña en `ui/change_password_dialog.py`.
 - Ventana principal `ui/main_window.py` con panel de botones (sin barra
   superior) para acceso a:
@@ -26,10 +26,9 @@ productiva (BD MySQL/MariaDB, despliegue y empaquetado).
 - Formulario de asesores: `ui/asesores/asesor_form.py` (campos extendidos en UI).
 - Panel de estadísticas interactivo: botones por sección (Clientes/Propiedades/
   Asesores), filtros, gráficas y histograma de precios.
-- Autenticación y CRUD de asesores en MySQL: `modules/auth.py`,
+- Autenticación y CRUD de asesores en PostgreSQL: `modules/auth.py`,
   `modules/asesores.py`.
-- Persistencia de desarrollo: `modules/clientes.py` y `modules/propiedades.py`
-  siguen usando JSON como fallback.
+- Persistencia de clientes y propiedades en PostgreSQL.
 - Tests unitarios (pytest) añadidos bajo `tests/` y `requirements.txt`
   contiene dependencias de desarrollo.
 
@@ -46,10 +45,10 @@ productiva (BD MySQL/MariaDB, despliegue y empaquetado).
 - `ui/propiedades/propiedad_lista.py` — lista de propiedades (búsqueda, filtros, paginación).
 - `ui/asesores/asesor_form.py` — formulario asesores.
 - `ui/asesores/asesor_lista.py` — lista asesores (búsqueda, filtros, paginación).
-- `modules/auth.py` — gestor de autenticación MySQL (bcrypt).
+- `modules/auth.py` — gestor de autenticación PostgreSQL (bcrypt).
 - `modules/clientes.py`, `modules/propiedades.py` — persistencia simple y
   funciones auxiliares (JSON fallback).
-- `modules/asesores.py` — CRUD de asesores (MySQL).
+- `modules/asesores.py` — CRUD de asesores (PostgreSQL).
 - `database/seeds/*.json` — stores JSON de ejemplo para pruebas.
 
 ## Arquitectura
@@ -58,7 +57,7 @@ La aplicación sigue una arquitectura ligera en capas pensada para:
 - Separar la interfaz de usuario (UI) de la lógica de negocio y de la
   persistencia.
 - Permitir un desarrollo rápido con stores JSON y una migración clara a
-  MySQL/MariaDB.
+  PostgreSQL.
 
 Capas y componentes principales:
 - Capa UI (`ui/`): widgets y ventanas de Tkinter. Contiene vistas,
@@ -71,9 +70,7 @@ Capas y componentes principales:
   migración. `database/db.py` expone `get_connection()`; `database/schema.sql`
   define tablas principales.
 - Utilidades (`utils/`): validadores y helpers (`utils/validators.py`).
-- Scripts y DevOps (`scripts/`): build, migración y empaquetado
-  (`scripts/build_exe.ps1`, `scripts/installer.iss`,
-  `scripts/migrate_json_to_mysql.py`).
+- Scripts y DevOps: build, migración y empaquetado (actualmente no incluidos).
 
 Modelo de datos (tablas principales en `schema.sql`):
 - `asesores` (id, username, password_hash, rol, nombres, apellidos, activo,
@@ -91,9 +88,9 @@ Flujo de autenticación y permisos:
 - Las operaciones de escritura (crear cliente, editar propiedad) deben
   validar `auth_manager.get_current_user()` y verificar permisos.
 
-Estrategia de migración JSON → MySQL:
-1. Usar scripts en `scripts/migrate_json_to_mysql.py` para importar los
-   stores `database/seeds/*.json` a tablas SQL.
+Estrategia de migración JSON → PostgreSQL:
+1. Usar un script de migración JSON → PostgreSQL (pendiente) para importar
+   los stores `database/seeds/*.json` a tablas SQL.
 2. Actualizar módulos en `modules/` para usar `database/db.get_connection()`
    y queries parametrizados.
 3. Añadir transacciones y tests de integración para cada operación.
@@ -147,10 +144,8 @@ Vista rápida de la organización principal del repositorio:
 │  └── money_entry.py
 ├── utils/
 │  └── validators.py
-├── scripts/
 │  ├── build_exe.ps1
 │  ├── installer.iss
-│  └── migrate_json_to_mysql.py
 ├── static/ (assets)
 ├── tests/
 └── docs/
@@ -184,14 +179,14 @@ contraseña en primer inicio).
 Requisitos:
 - Raspberry Pi OS 64-bit con entorno gráfico (Desktop).
 - Python 3.9+.
-- MariaDB/MySQL.
+- PostgreSQL.
 
 1. Actualizar el sistema e instalar dependencias:
 
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip python3-tk
-sudo apt install -y mariadb-server
+sudo apt install -y postgresql
 ```
 
 2. Clonar el repositorio y crear entorno virtual:
@@ -208,13 +203,13 @@ source .venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
-pip install pymysql bcrypt
+pip install psycopg[binary] bcrypt
 ```
 
-4. Crear base de datos (ejemplo con MariaDB):
+4. Crear base de datos (ejemplo con PostgreSQL):
 
 ```bash
-sudo mariadb -e "CREATE DATABASE IF NOT EXISTS crm_inmobiliario;"
+sudo -u postgres psql -c "CREATE DATABASE CRM;"
 ```
 
 5. Configurar credenciales:
@@ -223,10 +218,10 @@ sudo mariadb -e "CREATE DATABASE IF NOT EXISTS crm_inmobiliario;"
 
 ```bash
 DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
+DB_PORT=5432
+DB_USER=postgres
 DB_PASSWORD=
-DB_NAME=crm_inmobiliario
+DB_NAME=CRM
 ```
 
 6. Ejecutar la aplicación:
@@ -292,31 +287,13 @@ Se eligió el flujo siguiente como estrategia principal de distribución:
 - Auto-updater (opcional): componente que consulte Releases y actualice
   el ejecutable localmente verificando hash/firmas.
 
-He añadido scripts base para facilitar este flujo en `scripts/`:
-
-- `scripts/build_exe.ps1` — PowerShell que ejecuta PyInstaller, limpia
-  builds previos e incluye datos estáticos/seed cuando existen.
-- `scripts/installer.iss` — plantilla Inno Setup para empaquetar
-  `dist\CRMInmobiliario.exe` en un instalador Windows.
-
-Comandos rápidos para crear el EXE localmente:
-
-```powershell
-& .venv\Scripts\Activate.ps1
-python -m pip install pyinstaller
-.\scripts\build_exe.ps1
-```
-
-Después de generar `dist\CRMInmobiliario.exe`, abre Inno Setup
-y compila `scripts\installer.iss` (ajusta rutas si es necesario).
-
 Si quieres automatizar la publicación en GitHub, puedo añadir un
-workflow de GitHub Actions que ejecute `scripts/build_exe.ps1` en un
-runner Windows y suba los artefactos a un Release.
+workflow de GitHub Actions que ejecute el build en un runner Windows
+y suba los artefactos a un Release.
 
 ## Consideraciones para producción
 
-- Migrar `modules/*` para usar una base de datos MySQL/MariaDB (`database/db.py`).
+- Migrar `modules/*` para usar una base de datos PostgreSQL (`database/db.py`).
 - Añadir manejo de usuarios, roles y permisos con audit logging.
 - Respaldos, migration scripts y gestión de configuración (archivo
   `.env`).
@@ -325,7 +302,7 @@ runner Windows y suba los artefactos a un Release.
 
 ## Estado pendiente / próximos pasos (priorizados)
 
-1. Conexión completa a MySQL/MariaDB para clientes y propiedades.
+1. Conexión completa a PostgreSQL para clientes y propiedades.
 2. Dashboard con mapa de calor y reportes avanzados.
 3. Empaquetado con PyInstaller + instalador Inno Setup.
 4. Implementar mecanismo de actualización automática (GitHub Releases
@@ -339,5 +316,4 @@ runner Windows y suba los artefactos a un Release.
 ---
 
 Para cualquier consulta o si quieres que implemente el empaquetado
-automático y un `scripts/build_exe.ps1`, dime y lo preparo con los
-scripts y el `INSTALL.md` correspondiente.
+automático y un `INSTALL.md` correspondiente.

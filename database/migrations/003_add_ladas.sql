@@ -1,98 +1,4 @@
--- Schema base PostgreSQL (CRM)
-
-CREATE TABLE IF NOT EXISTS asesores (
-    id SERIAL PRIMARY KEY,
-    rol VARCHAR(50) NOT NULL DEFAULT 'asesor',
-    nombres VARCHAR(120) NOT NULL DEFAULT '',
-    apellidos VARCHAR(120) NOT NULL DEFAULT '',
-    activo BOOLEAN NOT NULL DEFAULT TRUE,
-    requiere_cambio_password BOOLEAN NOT NULL DEFAULT FALSE,
-    ultimo_acceso TIMESTAMP NULL,
-    -- Campos extendidos
-    primer_nombre VARCHAR(120) NULL,
-    segundo_nombre VARCHAR(120) NULL,
-    apellido_paterno VARCHAR(120) NULL,
-    apellido_materno VARCHAR(120) NULL,
-    curp VARCHAR(20) NULL,
-    fecha_nacimiento DATE NULL,
-    edad INT NULL,
-    genero VARCHAR(20) NULL,
-    estado_civil VARCHAR(30) NULL,
-    telefono VARCHAR(20) NULL,
-    correo VARCHAR(150) NULL,
-    pais VARCHAR(80) NULL,
-    estado VARCHAR(80) NULL,
-    ciudad VARCHAR(80) NULL,
-    zona VARCHAR(80) NULL,
-    inmobiliaria VARCHAR(150) NULL,
-    area VARCHAR(120) NULL,
-    anos_experiencia INT NULL,
-    comision_asignada NUMERIC(12, 2) NULL,
-    fecha_ingreso DATE NULL
-);
-
-CREATE TABLE IF NOT EXISTS clientes (
-    id SERIAL PRIMARY KEY,
-    activo BOOLEAN NOT NULL DEFAULT TRUE,
-    primer_nombre VARCHAR(120) NULL,
-    segundo_nombre VARCHAR(120) NULL,
-    apellido_paterno VARCHAR(120) NULL,
-    apellido_materno VARCHAR(120) NULL,
-    curp VARCHAR(20) NULL,
-    fecha_nacimiento DATE NULL,
-    edad INT NULL,
-    genero VARCHAR(20) NULL,
-    estado_civil VARCHAR(30) NULL,
-    telefono VARCHAR(20) NULL,
-    correo VARCHAR(150) NULL,
-    pais VARCHAR(80) NULL,
-    estado VARCHAR(80) NULL,
-    ciudad VARCHAR(80) NULL,
-    zona VARCHAR(80) NULL,
-    ocupacion VARCHAR(120) NULL,
-    antiguedad_laboral VARCHAR(60) NULL,
-    ingreso_mensual NUMERIC(12, 2) NULL,
-    tipo_credito VARCHAR(80) NULL,
-    buro_credito VARCHAR(40) NULL,
-    presupuesto_min NUMERIC(12, 2) NULL,
-    presupuesto_max NUMERIC(12, 2) NULL,
-    nivel_educativo VARCHAR(80) NULL,
-    hijos INT NULL,
-    metodo_captacion VARCHAR(80) NULL,
-    origen_captacion VARCHAR(80) NULL,
-    interes_pais VARCHAR(80) NULL,
-    interes_estado VARCHAR(80) NULL,
-    interes_ciudad VARCHAR(80) NULL,
-    interes_zona VARCHAR(80) NULL,
-    interes_tipo VARCHAR(20) NULL,
-    zona_interes VARCHAR(80) NULL,
-    deudor_alimenticio BOOLEAN NULL,
-    propiedades_previas BOOLEAN NULL,
-    num_propiedades_previas INT NULL,
-    edad_adquisicion INT NULL,
-    fecha_registro TIMESTAMP NOT NULL DEFAULT NOW(),
-    estado_cliente VARCHAR(40) NULL,
-    tipo_cliente VARCHAR(40) NULL,
-    etapa_embudo VARCHAR(40) NULL,
-    score INT NULL,
-    asesor_id INT NULL
-);
-
-CREATE TABLE IF NOT EXISTS propiedades (
-    id SERIAL PRIMARY KEY,
-    activo BOOLEAN NOT NULL DEFAULT TRUE,
-    titulo VARCHAR(200) NULL,
-    descripcion TEXT NULL,
-    precio NUMERIC(12, 2) NOT NULL DEFAULT 0,
-    metros NUMERIC(10, 2) NULL,
-    estado VARCHAR(80) NULL,
-    ciudad VARCHAR(80) NULL,
-    zona VARCHAR(80) NULL,
-    tipo VARCHAR(40) NULL,
-    habitaciones INT NULL,
-    amenidades TEXT NULL
-);
-
+-- Agrega catalogo de LADAS (México)
 CREATE TABLE IF NOT EXISTS ladas (
     lada VARCHAR(3) NOT NULL,
     estado VARCHAR(80) NOT NULL,
@@ -101,7 +7,6 @@ CREATE TABLE IF NOT EXISTS ladas (
     PRIMARY KEY (lada, estado, ciudad)
 );
 
--- LADA -> ciudad/estado (referencia)
 INSERT INTO ladas (lada, estado, ciudad, pais) VALUES
 ('55', 'CDMX', 'Ciudad de México', 'México'),
 ('56', 'CDMX', 'Ciudad de México', 'México'),

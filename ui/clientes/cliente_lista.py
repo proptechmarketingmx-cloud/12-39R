@@ -1,13 +1,10 @@
 ﻿"""Lista de clientes con busqueda, filtros y paginacion.
 
-Usa `modules.clientes` si existe (listar_clientes, buscar_clientes, contar_clientes)
-y cae a un store JSON de desarrollo cuando no estan disponibles.
+Usa `modules.clientes` (listar_clientes, buscar_clientes, contar_clientes).
 """
 from __future__ import annotations
 
-import json
 import logging
-import os
 import math
 from typing import Any, Dict, List, Optional, Callable
 
@@ -36,7 +33,6 @@ except Exception:
 
 LOG = logging.getLogger(__name__)
 
-STORE_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "database", "seeds", "clientes_store.json")
 
 
 def _get_color(name: str, default: str) -> str:
@@ -64,18 +60,6 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
 		return float(value)
 	except Exception:
 		return default
-
-
-def _load_store() -> List[Dict[str, Any]]:
-	path = os.path.abspath(STORE_PATH)
-	if not os.path.exists(path):
-		return []
-	try:
-		with open(path, "r", encoding="utf-8") as f:
-			return json.load(f)
-	except Exception:
-		LOG.exception("No se pudo leer el store de clientes")
-		return []
 
 
 def _call_with_supported_kwargs(func: Callable[..., Any], **kwargs: Any) -> Any:
@@ -131,6 +115,8 @@ class ClienteLista(ttk.Frame):
 		self.var_tipo = tk.StringVar(value="Todos")
 		self.var_pres_min = tk.StringVar()
 		self.var_pres_max = tk.StringVar()
+		self.var_etapa = tk.StringVar(value="Todas")
+		self.var_origen = tk.StringVar(value="Todos")
 
 		ttk.Label(filters, text="Estado:", font=font).grid(row=0, column=0, sticky=tk.W)
 		cb_estado = ttk.Combobox(filters, textvariable=self.var_estado, state="readonly")
@@ -148,7 +134,17 @@ class ClienteLista(ttk.Frame):
 		ttk.Label(filters, text="Presupuesto Max:", font=font).grid(row=0, column=6, sticky=tk.W, padx=(8, 0))
 		ttk.Entry(filters, textvariable=self.var_pres_max, width=12).grid(row=0, column=7, sticky=tk.W, padx=4)
 
-		ttk.Button(filters, text="Aplicar", command=self._on_buscar).grid(row=0, column=8, sticky=tk.W, padx=(8, 0))
+		ttk.Label(filters, text="Etapa:", font=font).grid(row=1, column=0, sticky=tk.W, padx=(0, 0), pady=(6, 0))
+		cb_etapa = ttk.Combobox(filters, textvariable=self.var_etapa, state="readonly")
+		cb_etapa["values"] = ["Todas", "Nuevo", "Contactado", "Visitado", "Negociacion", "Cierre"]
+		cb_etapa.grid(row=1, column=1, sticky=tk.W, padx=4, pady=(6, 0))
+
+		ttk.Label(filters, text="Origen:", font=font).grid(row=1, column=2, sticky=tk.W, padx=(8, 0), pady=(6, 0))
+		cb_origen = ttk.Combobox(filters, textvariable=self.var_origen, state="readonly")
+		cb_origen["values"] = ["Todos", "Referido", "WhatsApp", "Marketplace", "Otro"]
+		cb_origen.grid(row=1, column=3, sticky=tk.W, padx=4, pady=(6, 0))
+
+		ttk.Button(filters, text="Aplicar", command=self._on_buscar).grid(row=1, column=8, sticky=tk.W, padx=(8, 0), pady=(6, 0))
 
 		# Acciones
 		actions = ttk.Frame(self)
@@ -166,20 +162,26 @@ class ClienteLista(ttk.Frame):
 		table_frame = ttk.Frame(self)
 		table_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 6))
 
-		columns = ("id", "nombre", "telefono", "estado", "score", "fecha")
+		columns = ("id", "nombre", "telefono", "estado", "tipo", "etapa", "origen", "score", "fecha")
 		self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
 		self.tree.heading("id", text="ID")
 		self.tree.heading("nombre", text="Nombre Completo")
 		self.tree.heading("telefono", text="Telefono")
 		self.tree.heading("estado", text="Estado Cliente")
+		self.tree.heading("tipo", text="Tipo Cliente")
+		self.tree.heading("etapa", text="Etapa Embudo")
+		self.tree.heading("origen", text="Origen")
 		self.tree.heading("score", text="Score")
 		self.tree.heading("fecha", text="Fecha Registro")
 
 		self.tree.column("id", width=60, anchor=tk.CENTER)
-		self.tree.column("nombre", width=220, anchor=tk.W)
-		self.tree.column("telefono", width=120, anchor=tk.W)
-		self.tree.column("estado", width=120, anchor=tk.CENTER)
-		self.tree.column("score", width=80, anchor=tk.CENTER)
+		self.tree.column("nombre", width=280, anchor=tk.W)
+		self.tree.column("telefono", width=140, anchor=tk.W)
+		self.tree.column("estado", width=140, anchor=tk.CENTER)
+		self.tree.column("tipo", width=120, anchor=tk.CENTER)
+		self.tree.column("etapa", width=110, anchor=tk.CENTER)
+		self.tree.column("origen", width=110, anchor=tk.CENTER)
+		self.tree.column("score", width=70, anchor=tk.CENTER)
 		self.tree.column("fecha", width=120, anchor=tk.CENTER)
 
 		sb = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
@@ -216,6 +218,8 @@ class ClienteLista(ttk.Frame):
 	def _get_filters(self) -> Dict[str, Any]:
 		estado = self.var_estado.get()
 		tipo = self.var_tipo.get()
+		etapa = self.var_etapa.get()
+		origen = self.var_origen.get()
 		pres_min = _safe_float(self.var_pres_min.get() or 0, 0.0)
 		pres_max = _safe_float(self.var_pres_max.get() or 0, 0.0)
 		filtros: Dict[str, Any] = {}
@@ -223,6 +227,10 @@ class ClienteLista(ttk.Frame):
 			filtros["estado_cliente"] = estado
 		if tipo and tipo != "Todos":
 			filtros["tipo_cliente"] = tipo
+		if etapa and etapa != "Todas":
+			filtros["etapa_embudo"] = etapa
+		if origen and origen != "Todos":
+			filtros["origen_captacion"] = origen
 		if pres_min:
 			filtros["presupuesto_min"] = pres_min
 		if pres_max:
@@ -279,36 +287,6 @@ class ClienteLista(ttk.Frame):
 		if not total:
 			total = len(data)
 
-		# Fallback JSON si no hay modulo o no retorno data
-		if clientes_module is None or (not data and total == 0):
-			data_all = _load_store()
-			if asesor_id:
-				data_all = [c for c in data_all if int(c.get("asesor_id", 0)) == int(asesor_id)]
-			if filtros.get("estado_cliente"):
-				data_all = [c for c in data_all if c.get("estado_cliente") == filtros["estado_cliente"]]
-			if filtros.get("tipo_cliente"):
-				data_all = [c for c in data_all if c.get("tipo_cliente") == filtros["tipo_cliente"]]
-			if filtros.get("presupuesto_min"):
-				data_all = [c for c in data_all if _safe_float(c.get("presupuesto", 0)) >= filtros["presupuesto_min"]]
-			if filtros.get("presupuesto_max"):
-				data_all = [c for c in data_all if _safe_float(c.get("presupuesto", 0)) <= filtros["presupuesto_max"]]
-			if search_text:
-				st = search_text.lower()
-				def _match(c: Dict[str, Any]) -> bool:
-					parts = [
-						str(c.get("nombre", "")),
-						str(c.get("apellido_paterno", "")),
-						str(c.get("apellido_materno", "")),
-						str(c.get("curp", "")),
-						str(c.get("telefono_principal", "")),
-					]
-					return st in " ".join(parts).lower()
-				data_all = [c for c in data_all if _match(c)]
-			total = len(data_all)
-			start = (self.page - 1) * self.page_size
-			end = start + self.page_size
-			data = data_all[start:end]
-
 		self.total = total
 		self._rows = data
 		self._render_table()
@@ -317,21 +295,29 @@ class ClienteLista(ttk.Frame):
 		for i in self.tree.get_children():
 			self.tree.delete(i)
 
+		def _val(v: Any) -> str:
+			return "" if v is None else str(v)
+
 		for c in self._rows:
 			cid = c.get("id", "")
 			nombre = " ".join(
 				[
-					str(c.get("nombre", c.get("nombres", ""))).strip(),
-					str(c.get("apellido_paterno", "")).strip(),
-					str(c.get("apellido_materno", "")).strip(),
-					str(c.get("apellidos", "")).strip(),
+					_val(c.get("nombre", c.get("nombres", ""))).strip(),
+					_val(c.get("primer_nombre", "")).strip(),
+					_val(c.get("segundo_nombre", "")).strip(),
+					_val(c.get("apellido_paterno", "")).strip(),
+					_val(c.get("apellido_materno", "")).strip(),
+					_val(c.get("apellidos", "")).strip(),
 				]
 			).strip()
-			telefono = c.get("telefono_principal", c.get("telefono", ""))
-			estado = c.get("estado_cliente", c.get("estado", ""))
-			score = c.get("scoring", c.get("score", ""))
-			fecha = c.get("fecha_registro", c.get("created_at", ""))
-			self.tree.insert("", tk.END, values=(cid, nombre, telefono, estado, score, fecha))
+			telefono = _val(c.get("telefono_principal", c.get("telefono", "")))
+			estado = _val(c.get("estado_cliente", c.get("estado", "")))
+			tipo = _val(c.get("tipo_cliente", ""))
+			etapa = _val(c.get("etapa_embudo", ""))
+			origen = _val(c.get("origen_captacion", ""))
+			score = _val(c.get("scoring", c.get("score", "")))
+			fecha = _val(c.get("fecha_registro", c.get("created_at", "")))
+			self.tree.insert("", tk.END, values=(cid, nombre, telefono, estado, tipo, etapa, origen, score, fecha))
 
 		total_pages = max(1, int(math.ceil(self.total / float(self.page_size))))
 		self.page = min(max(1, self.page), total_pages)
@@ -347,6 +333,8 @@ class ClienteLista(ttk.Frame):
 		self.var_search.set("")
 		self.var_estado.set("Todos")
 		self.var_tipo.set("Todos")
+		self.var_etapa.set("Todas")
+		self.var_origen.set("Todos")
 		self.var_pres_min.set("")
 		self.var_pres_max.set("")
 		self.page = 1

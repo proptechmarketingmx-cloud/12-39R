@@ -1,5 +1,5 @@
 tkcalendar
-mysql-connector-python
+psycopg[binary]
 bcrypt
 python-dotenv
 openpyxl

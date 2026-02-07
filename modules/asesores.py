@@ -27,7 +27,7 @@ def _hash_password(password: str) -> str:
 class AsesoresManager:
     """Gestiona asesores en BD.
 
-    Todas las operaciones usan MySQL via `database.db.get_connection()`.
+    Todas las operaciones usan PostgreSQL via `database.db.get_connection()`.
     """
 
     def _get_conn(self):
@@ -127,8 +127,8 @@ class AsesoresManager:
             "rol": datos.get("rol", "asesor"),
             "nombres": datos.get("nombres", ""),
             "apellidos": datos.get("apellidos", ""),
-            "activo": int(bool(datos.get("activo", True))),
-            "requiere_cambio_password": int(bool(datos.get("requiere_cambio_password", False))),
+            "activo": bool(datos.get("activo", True)),
+            "requiere_cambio_password": bool(datos.get("requiere_cambio_password", False)),
             "ultimo_acceso": None,
             "primer_nombre": datos.get("primer_nombre"),
             "segundo_nombre": datos.get("segundo_nombre"),
@@ -158,7 +158,8 @@ class AsesoresManager:
             conn = self._get_conn()
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO asesores (username, password_hash, rol, nombres, apellidos, activo, requiere_cambio_password, ultimo_acceso, primer_nombre, segundo_nombre, apellido_paterno, apellido_materno, curp, fecha_nacimiento, edad, genero, estado_civil, telefono, correo, pais, estado, ciudad, zona, inmobiliaria, area, anos_experiencia, comision_asignada, fecha_ingreso) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "INSERT INTO asesores (username, password_hash, rol, nombres, apellidos, activo, requiere_cambio_password, ultimo_acceso, primer_nombre, segundo_nombre, apellido_paterno, apellido_materno, curp, fecha_nacimiento, edad, genero, estado_civil, telefono, correo, pais, estado, ciudad, zona, inmobiliaria, area, anos_experiencia, comision_asignada, fecha_ingreso) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                 (
                     datos_db["username"],
                     datos_db["password_hash"],
@@ -190,9 +191,9 @@ class AsesoresManager:
                     datos_db["fecha_ingreso"],
                 ),
             )
+            new_id = cur.fetchone()
             conn.commit()
-            new_id = cur.lastrowid if hasattr(cur, "lastrowid") else None
-            return int(new_id) if new_id is not None else 0
+            return int(new_id[0]) if new_id else 0
         except Exception:
             LOG.exception("No se pudo crear asesor")
             raise
@@ -253,9 +254,9 @@ class AsesoresManager:
             updates["username"] = username
 
         if "activo" in updates:
-            updates["activo"] = int(bool(updates["activo"]))
+            updates["activo"] = bool(updates["activo"])
         if "requiere_cambio_password" in updates:
-            updates["requiere_cambio_password"] = int(bool(updates["requiere_cambio_password"]))
+            updates["requiere_cambio_password"] = bool(updates["requiere_cambio_password"])
 
         set_clause = ", ".join([f"{k}=%s" for k in updates.keys()])
         valores = list(updates.values()) + [int(asesor_id)]
@@ -288,7 +289,7 @@ class AsesoresManager:
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("UPDATE asesores SET activo=%s WHERE id=%s", (0, int(asesor_id)))
+            cur.execute("UPDATE asesores SET activo=%s WHERE id=%s", (False, int(asesor_id)))
             conn.commit()
         except Exception:
             LOG.exception("No se pudo eliminar asesor")

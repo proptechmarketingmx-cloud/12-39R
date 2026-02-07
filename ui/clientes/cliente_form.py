@@ -5,9 +5,7 @@ Todos los campos son opcionales; se autocompletan valores minimos para guardar.
 """
 from __future__ import annotations
 
-import json
 import logging
-import os
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -26,29 +24,6 @@ except Exception:
 
 LOG = logging.getLogger(__name__)
 
-STORE_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "database", "seeds", "clientes_store.json")
-
-
-def _load_store() -> list[Dict[str, Any]]:
-	path = os.path.abspath(STORE_PATH)
-	if not os.path.exists(path):
-		return []
-	try:
-		with open(path, "r", encoding="utf-8") as f:
-			return json.load(f)
-	except Exception:
-		LOG.exception("No se pudo leer el store de clientes")
-		return []
-
-
-def _save_store(data: list[Dict[str, Any]]) -> None:
-	path = os.path.abspath(STORE_PATH)
-	os.makedirs(os.path.dirname(path), exist_ok=True)
-	try:
-		with open(path, "w", encoding="utf-8") as f:
-			json.dump(data, f, indent=2, ensure_ascii=False)
-	except Exception:
-		LOG.exception("No se pudo guardar el store de clientes")
 
 
 class ClienteForm(tk.Toplevel):
@@ -100,6 +75,7 @@ class ClienteForm(tk.Toplevel):
 		self._build_captacion(self.tab_captacion)
 		self._build_prop_interes(self.tab_prop_interes)
 		self._build_historial(self.tab_historial)
+		self._build_estadisticas(self.tab_historial)
 
 		# Botones
 		btn_frame = ttk.Frame(frm)
@@ -180,7 +156,16 @@ class ClienteForm(tk.Toplevel):
 		for label, key in labels:
 			ttk.Label(parent, text=label).grid(row=row, column=0, sticky=tk.W, padx=6, pady=4)
 			self.vars_financiero[key] = tk.StringVar()
-			ttk.Entry(parent, textvariable=self.vars_financiero[key]).grid(row=row, column=1, sticky=tk.EW, padx=6)
+			if key == "tipo_credito":
+				cb = ttk.Combobox(parent, textvariable=self.vars_financiero[key], state="readonly")
+				cb["values"] = ["Infonavit", "Fovissste", "Bancario", "Contado"]
+				cb.grid(row=row, column=1, sticky=tk.EW, padx=6)
+			elif key == "buro_credito":
+				cb = ttk.Combobox(parent, textvariable=self.vars_financiero[key], state="readonly")
+				cb["values"] = ["Si", "No"]
+				cb.grid(row=row, column=1, sticky=tk.EW, padx=6)
+			else:
+				ttk.Entry(parent, textvariable=self.vars_financiero[key]).grid(row=row, column=1, sticky=tk.EW, padx=6)
 			row += 1
 
 		ttk.Label(parent, text="Presupuesto", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, sticky=tk.W, padx=6, pady=(12, 4))
@@ -211,12 +196,12 @@ class ClienteForm(tk.Toplevel):
 
 	def _build_captacion(self, parent: ttk.Frame) -> None:
 		self.vars_captacion: Dict[str, tk.StringVar] = {}
-		options = ["Messenger Marketplace", "Referido", "Otro"]
-		ttk.Label(parent, text="Metodo de captacion").grid(row=0, column=0, sticky=tk.W, padx=6, pady=4)
-		self.vars_captacion["metodo_captacion"] = tk.StringVar()
-		cb = ttk.Combobox(parent, textvariable=self.vars_captacion["metodo_captacion"], state="readonly")
-		cb["values"] = options
-		cb.grid(row=0, column=1, sticky=tk.EW, padx=6)
+		origenes = ["Referido", "WhatsApp", "Marketplace", "Otro"]
+		ttk.Label(parent, text="Origen de captacion").grid(row=0, column=0, sticky=tk.W, padx=6, pady=4)
+		self.vars_captacion["origen_captacion"] = tk.StringVar()
+		cb2 = ttk.Combobox(parent, textvariable=self.vars_captacion["origen_captacion"], state="readonly")
+		cb2["values"] = origenes
+		cb2.grid(row=0, column=1, sticky=tk.EW, padx=6)
 		parent.columnconfigure(1, weight=1)
 
 	def _build_prop_interes(self, parent: ttk.Frame) -> None:
@@ -227,11 +212,17 @@ class ClienteForm(tk.Toplevel):
 			("Ciudad", "pi_ciudad"),
 			("Zona", "pi_zona"),
 			("Tipo de interes (compra/renta/venta)", "pi_tipo"),
+			("Zona de interes (mapa de calor)", "zona_interes"),
 		]
 		for i, (label, key) in enumerate(labels):
 			ttk.Label(parent, text=label).grid(row=i, column=0, sticky=tk.W, padx=6, pady=4)
 			self.vars_prop_interes[key] = tk.StringVar()
-			ttk.Entry(parent, textvariable=self.vars_prop_interes[key]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+			if key == "pi_tipo":
+				cb = ttk.Combobox(parent, textvariable=self.vars_prop_interes[key], state="readonly")
+				cb["values"] = ["Compra", "Renta", "Venta"]
+				cb.grid(row=i, column=1, sticky=tk.EW, padx=6)
+			else:
+				ttk.Entry(parent, textvariable=self.vars_prop_interes[key]).grid(row=i, column=1, sticky=tk.EW, padx=6)
 		parent.columnconfigure(1, weight=1)
 
 	def _build_historial(self, parent: ttk.Frame) -> None:
@@ -245,57 +236,140 @@ class ClienteForm(tk.Toplevel):
 		for i, (label, key) in enumerate(labels):
 			ttk.Label(parent, text=label).grid(row=i, column=0, sticky=tk.W, padx=6, pady=4)
 			self.vars_historial[key] = tk.StringVar()
-			ttk.Entry(parent, textvariable=self.vars_historial[key]).grid(row=i, column=1, sticky=tk.EW, padx=6)
+			if key in ("deudor_alimenticio", "propiedades_previas"):
+				cb = ttk.Combobox(parent, textvariable=self.vars_historial[key], state="readonly")
+				cb["values"] = ["Si", "No"]
+				cb.grid(row=i, column=1, sticky=tk.EW, padx=6)
+			else:
+				ttk.Entry(parent, textvariable=self.vars_historial[key]).grid(row=i, column=1, sticky=tk.EW, padx=6)
 		parent.columnconfigure(1, weight=1)
+
+	def _build_estadisticas(self, parent: ttk.Frame) -> None:
+		"""Campos para estadisticas y segmentacion."""
+		self.vars_stats: Dict[str, tk.StringVar] = {}
+		row = 5
+		ttk.Label(parent, text="Estadisticas", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, sticky=tk.W, padx=6, pady=(12, 4))
+		row += 1
+
+		ttk.Label(parent, text="Estado cliente").grid(row=row, column=0, sticky=tk.W, padx=6, pady=4)
+		self.vars_stats["estado_cliente"] = tk.StringVar()
+		cb_estado = ttk.Combobox(parent, textvariable=self.vars_stats["estado_cliente"], state="readonly")
+		cb_estado["values"] = ["Prospecto", "Caliente", "Frio", "Cerrado"]
+		cb_estado.grid(row=row, column=1, sticky=tk.EW, padx=6)
+		row += 1
+
+		ttk.Label(parent, text="Tipo cliente").grid(row=row, column=0, sticky=tk.W, padx=6, pady=4)
+		self.vars_stats["tipo_cliente"] = tk.StringVar()
+		cb_tipo = ttk.Combobox(parent, textvariable=self.vars_stats["tipo_cliente"], state="readonly")
+		cb_tipo["values"] = ["Comprador", "Vendedor", "Arrendador", "Arrendatario"]
+		cb_tipo.grid(row=row, column=1, sticky=tk.EW, padx=6)
+		row += 1
+
+		ttk.Label(parent, text="Etapa embudo").grid(row=row, column=0, sticky=tk.W, padx=6, pady=4)
+		self.vars_stats["etapa_embudo"] = tk.StringVar()
+		cb_etapa = ttk.Combobox(parent, textvariable=self.vars_stats["etapa_embudo"], state="readonly")
+		cb_etapa["values"] = ["Nuevo", "Contactado", "Visitado", "Negociacion", "Cierre"]
+		cb_etapa.grid(row=row, column=1, sticky=tk.EW, padx=6)
+		row += 1
 
 	def _populate(self) -> None:
 		try:
 			p = self.cliente
 			if not p:
 				return
+			def _v(val: Any) -> str:
+				if val is None:
+					return ""
+				s = str(val)
+				return "" if s.lower() == "none" else s
+			def _v_bool(val: Any) -> str:
+				if val is True or str(val).strip().lower() in ("true", "1", "si", "sí"):
+					return "Si"
+				if val is False or str(val).strip().lower() in ("false", "0", "no"):
+					return "No"
+				return _v(val)
+			def _interes_val(key: str) -> Any:
+				val = p.get(key)
+				if val is None and key.startswith("pi_"):
+					alt = "interes_" + key[3:]
+					val = p.get(alt)
+				return val
 			# personal
-			self.vars_personal.get("primer_nombre", tk.StringVar()).set(p.get("primer_nombre", ""))
-			self.vars_personal.get("segundo_nombre", tk.StringVar()).set(p.get("segundo_nombre", ""))
-			self.vars_personal.get("apellido_paterno", tk.StringVar()).set(p.get("apellido_paterno", ""))
-			self.vars_personal.get("apellido_materno", tk.StringVar()).set(p.get("apellido_materno", ""))
-			self.vars_personal.get("curp", tk.StringVar()).set(p.get("curp", ""))
-			self.vars_personal.get("fecha_nacimiento", tk.StringVar()).set(p.get("fecha_nacimiento", ""))
-			self.vars_personal.get("edad", tk.StringVar()).set(str(p.get("edad", "")))
-			self.vars_personal.get("genero", tk.StringVar()).set(p.get("genero", ""))
-			self.vars_personal.get("estado_civil", tk.StringVar()).set(p.get("estado_civil", ""))
-			self.vars_personal.get("telefono", tk.StringVar()).set(p.get("telefono", ""))
-			self.vars_personal.get("correo", tk.StringVar()).set(p.get("correo", ""))
-			self.vars_personal.get("pais", tk.StringVar()).set(p.get("pais", ""))
-			self.vars_personal.get("estado", tk.StringVar()).set(p.get("estado", ""))
-			self.vars_personal.get("ciudad", tk.StringVar()).set(p.get("ciudad", ""))
-			self.vars_personal.get("zona", tk.StringVar()).set(p.get("zona", ""))
+			self.vars_personal.get("primer_nombre", tk.StringVar()).set(_v(p.get("primer_nombre")))
+			self.vars_personal.get("segundo_nombre", tk.StringVar()).set(_v(p.get("segundo_nombre")))
+			self.vars_personal.get("apellido_paterno", tk.StringVar()).set(_v(p.get("apellido_paterno")))
+			self.vars_personal.get("apellido_materno", tk.StringVar()).set(_v(p.get("apellido_materno")))
+			self.vars_personal.get("curp", tk.StringVar()).set(_v(p.get("curp")))
+			self._set_fecha_nacimiento(p.get("fecha_nacimiento"))
+			self.vars_personal.get("edad", tk.StringVar()).set(_v(p.get("edad")))
+			self.vars_personal.get("genero", tk.StringVar()).set(_v(p.get("genero")))
+			self.vars_personal.get("estado_civil", tk.StringVar()).set(_v(p.get("estado_civil")))
+			self.vars_personal.get("telefono", tk.StringVar()).set(_v(p.get("telefono")))
+			self.vars_personal.get("correo", tk.StringVar()).set(_v(p.get("correo")))
+			self.vars_personal.get("pais", tk.StringVar()).set(_v(p.get("pais")))
+			self.vars_personal.get("estado", tk.StringVar()).set(_v(p.get("estado")))
+			self.vars_personal.get("ciudad", tk.StringVar()).set(_v(p.get("ciudad")))
+			self.vars_personal.get("zona", tk.StringVar()).set(_v(p.get("zona")))
 
 			# laboral
-			self.vars_laboral.get("ocupacion", tk.StringVar()).set(p.get("ocupacion", ""))
-			self.vars_laboral.get("antiguedad_laboral", tk.StringVar()).set(p.get("antiguedad_laboral", ""))
+			self.vars_laboral.get("ocupacion", tk.StringVar()).set(_v(p.get("ocupacion")))
+			self.vars_laboral.get("antiguedad_laboral", tk.StringVar()).set(_v(p.get("antiguedad_laboral")))
 
 			# financiero
 			for key in ["ingreso_mensual", "tipo_credito", "buro_credito", "presupuesto_min", "presupuesto_max"]:
-				self.vars_financiero.get(key, tk.StringVar()).set(p.get(key, ""))
+				self.vars_financiero.get(key, tk.StringVar()).set(_v(p.get(key)))
 
 			# academico
-			self.vars_academico.get("nivel_educativo", tk.StringVar()).set(p.get("nivel_educativo", ""))
+			self.vars_academico.get("nivel_educativo", tk.StringVar()).set(_v(p.get("nivel_educativo")))
 
 			# familiar
-			self.vars_familiar.get("hijos", tk.StringVar()).set(p.get("hijos", ""))
+			self.vars_familiar.get("hijos", tk.StringVar()).set(_v(p.get("hijos")))
 
 			# captacion
-			self.vars_captacion.get("metodo_captacion", tk.StringVar()).set(p.get("metodo_captacion", ""))
+			self.vars_captacion.get("origen_captacion", tk.StringVar()).set(_v(p.get("origen_captacion")))
 
 			# propiedad interes
-			for key in ["pi_pais", "pi_estado", "pi_ciudad", "pi_zona", "pi_tipo"]:
-				self.vars_prop_interes.get(key, tk.StringVar()).set(p.get(key, ""))
+			for key in ["pi_pais", "pi_estado", "pi_ciudad", "pi_zona", "pi_tipo", "zona_interes"]:
+				self.vars_prop_interes.get(key, tk.StringVar()).set(_v(_interes_val(key)))
 
 			# historial
-			for key in ["deudor_alimenticio", "propiedades_previas", "num_propiedades_previas", "edad_adquisicion"]:
-				self.vars_historial.get(key, tk.StringVar()).set(p.get(key, ""))
+			self.vars_historial.get("deudor_alimenticio", tk.StringVar()).set(_v_bool(p.get("deudor_alimenticio")))
+			self.vars_historial.get("propiedades_previas", tk.StringVar()).set(_v_bool(p.get("propiedades_previas")))
+			self.vars_historial.get("num_propiedades_previas", tk.StringVar()).set(_v(p.get("num_propiedades_previas")))
+			self.vars_historial.get("edad_adquisicion", tk.StringVar()).set(_v(p.get("edad_adquisicion")))
+
+			# stats
+			if hasattr(self, "vars_stats"):
+				self.vars_stats.get("estado_cliente", tk.StringVar()).set(_v(p.get("estado_cliente")))
+				self.vars_stats.get("tipo_cliente", tk.StringVar()).set(_v(p.get("tipo_cliente")))
+				self.vars_stats.get("etapa_embudo", tk.StringVar()).set(_v(p.get("etapa_embudo")))
 		except Exception:
 			LOG.exception("Error poblando formulario de cliente")
+
+	def _set_fecha_nacimiento(self, value: Any) -> None:
+		widget = self.vars_personal.get("fecha_nacimiento__widget")
+		if value is None or str(value).lower() == "none":
+			value = ""
+		if widget:
+			try:
+				if value:
+					widget.set_date(value)  # type: ignore
+				else:
+					widget.delete(0, tk.END)  # type: ignore
+			except Exception:
+				pass
+		else:
+			self.vars_personal.get("fecha_nacimiento", tk.StringVar()).set(value or "")
+
+	def _get_fecha_nacimiento(self) -> str:
+		widget = self.vars_personal.get("fecha_nacimiento__widget")
+		if widget:
+			try:
+				val = widget.get()  # type: ignore
+				return str(val).strip()
+			except Exception:
+				return ""
+		return self.vars_personal.get("fecha_nacimiento", tk.StringVar()).get().strip()
 
 	def _on_limpiar(self) -> None:
 		for d in (
@@ -313,11 +387,52 @@ class ClienteForm(tk.Toplevel):
 					v.set("")
 				except Exception:
 					pass
+		if hasattr(self, "vars_stats"):
+			for v in self.vars_stats.values():
+				try:
+					v.set("")
+				except Exception:
+					pass
+		self._set_fecha_nacimiento("")
 
 	def _validar_telefonos(self) -> Optional[str]:
 		val = self.vars_personal.get("telefono", tk.StringVar()).get().strip()
 		if val and (not val.isdigit() or len(val) != 10):
 			return "El telefono debe tener 10 digitos numericos."
+		return None
+
+	def _validar_edad(self) -> Optional[str]:
+		val = self.vars_personal.get("edad", tk.StringVar()).get().strip()
+		if not val:
+			return None
+		if not val.isdigit():
+			return "La edad debe ser un numero entero."
+		return None
+
+	def _validar_montos(self) -> Optional[str]:
+		def _to_float(v: str) -> Optional[float]:
+			if not v:
+				return None
+			try:
+				return float(v)
+			except Exception:
+				return None
+
+		ingreso = self.vars_financiero.get("ingreso_mensual", tk.StringVar()).get().strip()
+		pmin = self.vars_financiero.get("presupuesto_min", tk.StringVar()).get().strip()
+		pmax = self.vars_financiero.get("presupuesto_max", tk.StringVar()).get().strip()
+
+		if ingreso and _to_float(ingreso) is None:
+			return "Ingreso mensual debe ser numerico."
+		if pmin and _to_float(pmin) is None:
+			return "Presupuesto minimo debe ser numerico."
+		if pmax and _to_float(pmax) is None:
+			return "Presupuesto maximo debe ser numerico."
+		if pmin and pmax:
+			min_val = _to_float(pmin)
+			max_val = _to_float(pmax)
+			if min_val is not None and max_val is not None and min_val > max_val:
+				return "Presupuesto minimo no puede ser mayor al maximo."
 		return None
 
 	def _validar_curp(self) -> Optional[str]:
@@ -331,21 +446,19 @@ class ClienteForm(tk.Toplevel):
 	def _existe_por_curp(self, curp: str) -> bool:
 		try:
 			if clientes_module and hasattr(clientes_module, "find_by_curp"):
-				return bool(clientes_module.find_by_curp(curp))  # type: ignore
+				found = clientes_module.find_by_curp(curp)  # type: ignore
+				if not found:
+					return False
+				if self.mode == "editar" and self.cliente.get("id") is not None:
+					return int(found.get("id", 0)) != int(self.cliente.get("id"))
+				return True
 		except Exception:
 			LOG.exception("Error consultando modules.clientes.find_by_curp")
-
-		data = _load_store()
-		for c in data:
-			if c.get("curp") == curp:
-				if self.mode == "editar" and c.get("id") == self.cliente.get("id"):
-					return False
-				return True
 		return False
 
 	def _on_guardar(self) -> None:
 		# Validaciones opcionales
-		err = self._validar_curp() or self._validar_telefonos()
+		err = self._validar_curp() or self._validar_telefonos() or self._validar_edad() or self._validar_montos()
 		if err:
 			messagebox.showerror("Validacion", err)
 			return
@@ -369,7 +482,7 @@ class ClienteForm(tk.Toplevel):
 			"apellido_materno": ap_mat,
 			"nombre": nombre,
 			"curp": curp,
-			"fecha_nacimiento": self.vars_personal.get("fecha_nacimiento", tk.StringVar()).get(),
+			"fecha_nacimiento": self._get_fecha_nacimiento(),
 			"edad": self.vars_personal.get("edad", tk.StringVar()).get(),
 			"genero": self.vars_personal.get("genero", tk.StringVar()).get(),
 			"estado_civil": self.vars_personal.get("estado_civil", tk.StringVar()).get(),
@@ -388,26 +501,31 @@ class ClienteForm(tk.Toplevel):
 			"presupuesto_max": self.vars_financiero.get("presupuesto_max", tk.StringVar()).get(),
 			"nivel_educativo": self.vars_academico.get("nivel_educativo", tk.StringVar()).get(),
 			"hijos": self.vars_familiar.get("hijos", tk.StringVar()).get(),
-			"metodo_captacion": self.vars_captacion.get("metodo_captacion", tk.StringVar()).get(),
+			"origen_captacion": self.vars_captacion.get("origen_captacion", tk.StringVar()).get(),
 			"pi_pais": self.vars_prop_interes.get("pi_pais", tk.StringVar()).get(),
 			"pi_estado": self.vars_prop_interes.get("pi_estado", tk.StringVar()).get(),
 			"pi_ciudad": self.vars_prop_interes.get("pi_ciudad", tk.StringVar()).get(),
 			"pi_zona": self.vars_prop_interes.get("pi_zona", tk.StringVar()).get(),
 			"pi_tipo": self.vars_prop_interes.get("pi_tipo", tk.StringVar()).get(),
+			"zona_interes": self.vars_prop_interes.get("zona_interes", tk.StringVar()).get(),
 			"deudor_alimenticio": self.vars_historial.get("deudor_alimenticio", tk.StringVar()).get(),
 			"propiedades_previas": self.vars_historial.get("propiedades_previas", tk.StringVar()).get(),
 			"num_propiedades_previas": self.vars_historial.get("num_propiedades_previas", tk.StringVar()).get(),
 			"edad_adquisicion": self.vars_historial.get("edad_adquisicion", tk.StringVar()).get(),
+			"estado_cliente": self.vars_stats.get("estado_cliente", tk.StringVar()).get() if hasattr(self, "vars_stats") else "",
+			"tipo_cliente": self.vars_stats.get("tipo_cliente", tk.StringVar()).get() if hasattr(self, "vars_stats") else "",
+			"etapa_embudo": self.vars_stats.get("etapa_embudo", tk.StringVar()).get() if hasattr(self, "vars_stats") else "",
 		}
+		if not cliente.get("metodo_captacion"):
+			cliente["metodo_captacion"] = cliente.get("origen_captacion", "")
+		if self.mode == "editar" and self.cliente.get("id") is not None:
+			cliente["id"] = self.cliente.get("id")
 
 		try:
 			if clientes_module and hasattr(clientes_module, "save"):
 				clientes_module.save(cliente)  # type: ignore
 			else:
-				data = _load_store()
-				cliente["id"] = str(max((int(c.get("id", 0)) for c in data), default=0) + 1)
-				data.append(cliente)
-				_save_store(data)
+				raise RuntimeError("Modulo de clientes no disponible")
 		except Exception:
 			LOG.exception("Error guardando cliente")
 			messagebox.showerror("Error", "No se pudo guardar el cliente.")
